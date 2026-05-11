@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings - TwinFlow</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <script src="/js/theme.js"></script>
+  <style>
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-top: 1px solid var(--border);
+      gap: 16px;
+    }
+
+    .toggle-row:first-of-type {
+      border-top: none;
+    }
+
+    .toggle {
+      position: relative;
+      width: 54px;
+      height: 30px;
+      background: rgba(148, 163, 184, 0.28);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .toggle.on {
+      background: linear-gradient(135deg, var(--primary), #e08f3d);
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 22px;
+      height: 22px;
+      background: #fff;
+      border-radius: 50%;
+      transition: left 0.2s ease;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    }
+
+    .toggle.on::after {
+      left: 28px;
+    }
+
+    .phone-edit {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .phone-edit input {
+      max-width: 220px;
+    }
+
+    .telegram-box {
+      margin-top: 12px;
+      padding: 14px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+    }
+
+    .telegram-code {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 12px;
+      background: var(--surface-strong);
+      border: 1px solid var(--border);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="animated-bg">
+    <div class="orb orb-1"></div><div class="orb orb-2"></div>
+    <div class="orb orb-3"></div><div class="orb orb-4"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    let currentUser = null;
+    let telegramLink = null;
+    let pendingPhotoData = null;
+
+    function toast(msg, kind) {
+      const t = document.createElement('div');
+      t.className = 'toast ' + (kind || '');
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 4000);
+    }
+
+    function escapeText(value) {
+      return window.escapeHtml ? window.escapeHtml(value) : String(value ?? '');
+    }
+
+    async function callAndToast(fn, okMsg) {
+      try {
+        const res = await fn();
+        toast(okMsg + (res && res.message ? ' - ' + res.message : ''), 'success');
+        return res;
+      } catch (e) {
+        toast('Failed: ' + (e.message || e), 'error');
+        throw e;
+      }
+    }
+
+    async function refreshUser() {
+      currentUser = await api.get('/api/auth/me');
+      updateLayoutUser(currentUser);
+      return currentUser;
+    }
+
+    async function togglePref(field) {
+      const newVal = !currentUser[field];
+      const updated = await api.put('/api/auth/me/notifications', {
+        notifyEmail: field === 'notifyEmail' ? newVal : currentUser.notifyEmail,
+        notifySms: field === 'notifySms' ? newVal : currentUser.notifySms,
+        notifyTelegram: field === 'notifyTelegram' ? newVal : currentUser.notifyTelegram,
+      });
+      currentUser = updated;
+      updateLayoutUser(currentUser);
+      render();
+      const label = field === 'notifyEmail' ? 'Email' : (field === 'notifySms' ? 'SMS' : 'Telegram');
+      toast(label + ' reminders ' + (newVal ? 'ON' : 'OFF'), 'success');
+    }
+
+    async function savePhone() {
+      const v = document.getElementById('phone-input').value.trim();
+      if (!/^\d{10}$/.test(v)) {
+        toast('Enter a valid 10-digit number', 'error');
+        return;
+      }
+      try {
+        currentUser = await api.put('/api/auth/me/phone', { phoneNumber: v });
+        updateLayoutUser(currentUser);
+        render();
+        toast('Phone number updated', 'success');
+      } catch (e) {
+        toast(e.message || 'Could not save', 'error');
+      }
+    }
+
+    function readPhotoFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read the selected photo'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function onPhotoSelected(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        pendingPhotoData = null;
+        render();
+        return;
+      }
+
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        toast('Choose a PNG, JPG, WEBP, or GIF image.', 'error');
+        event.target.value = '';
+        return;
+      }
+      if (file.size > 900000) {
+        toast('Profile photo must be smaller than 900 KB.', 'error');
+        event.target.value = '';
+        return;
+      }
+
+      try {
+        pendingPhotoData = await readPhotoFile(file);
+        render();
+      } catch (err) {
+        pendingPhotoData = null;
+        event.target.value = '';
+        toast(err.message || 'Could not load profile photo.', 'error');
+      }
+    }
+
+    async function saveProfilePhoto() {
+      try {
+        currentUser = await api.put('/api/auth/me/profile-photo', {
+          profilePhoto: pendingPhotoData,
+        });
+        pendingPhotoData = null;
+        updateLayoutUser(currentUser);
+        render();
+        toast('Profile photo updated', 'success');
+      } catch (err) {
+        toast(err.message || 'Could not update profile photo', 'error');
+      }
+    }
+
+    async function removeProfilePhoto() {
+      try {
+        currentUser = await api.put('/api/auth/me/profile-photo', { profilePhoto: null });
+        pendingPhotoData = null;
+        updateLayoutUser(currentUser);
+        render();
+        toast('Profile photo removed', 'success');
+      } catch (err) {
+        toast(err.message || 'Could not remove profile photo', 'error');
+      }
+    }
+
+    async function connectTelegram() {
+      try {
+        telegramLink = await api.post('/api/me/telegram/link-code');
+        render();
+        toast('Telegram link code generated', 'success');
+      } catch (e) {
+        toast(e.message || 'Could not generate link code', 'error');
+      }
+    }
+
+    async function disconnectTelegram() {
+      try {
+        await api.post('/api/me/telegram/disconnect');
+        telegramLink = null;
+        await refreshUser();
+        render();
+        toast('Telegram disconnected', 'success');
+      } catch (e) {
+        toast(e.message || 'Could not disconnect Telegram', 'error');
+      }
+    }
+
+    function renderProfilePhotoCard() {
+      const initials = (currentUser.username || 'TF').slice(0, 2).toUpperCase();
+      const previewMarkup = pendingPhotoData
+        ? '<img src="' + pendingPhotoData + '" alt="New profile photo preview" />'
+        : (currentUser.profilePhoto
+          ? '<img src="' + currentUser.profilePhoto + '" alt="' + escapeText(currentUser.username) + ' profile photo" />'
+          : escapeText(initials));
+
+      return `
+        <div class="card settings-card" style="margin-bottom:18px;">
+          <div class="page-header" style="margin-bottom: 8px;">
+            <div>
+              <h3 style="margin-bottom: 6px;">Profile</h3>
+              <p>Personalize your TwinFlow workspace and keep your identity visible across the app.</p>
+            </div>
+            <a href="/about.html" class="btn btn-outline">About TwinFlow</a>
+          </div>
+          <div class="profile-editor">
+            <div class="profile-preview">${previewMarkup}</div>
+            <div style="flex: 1; min-width: 260px;">
+              <div style="font-weight: 800; margin-bottom: 4px;">${escapeText(currentUser.username)}</div>
+              <div class="mini-note" style="margin-bottom: 12px;">${escapeText(currentUser.email)}</div>
+              <input
+                type="file"
+                id="settings-profile-photo"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+              />
+              <div class="avatar-actions" style="margin-top: 12px;">
+                <button class="btn" onclick="saveProfilePhoto()" ${pendingPhotoData ? '' : 'disabled'}>Save photo</button>
+                <button class="btn btn-outline" onclick="removeProfilePhoto()" ${currentUser.profilePhoto ? '' : 'disabled'}>Remove current</button>
+              </div>
+              <small class="hint">Use PNG, JPG, WEBP, or GIF under 900 KB. Your sidebar avatar updates right away.</small>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTelegramSection(status) {
+      if (!status.telegram_configured) {
+        return '';
+      }
+
+      const botName = status.telegram_bot_username ? '@' + status.telegram_bot_username : '@YourBotName';
+      if (currentUser.telegramChatId) {
+        return `
+          <div class="card settings-card" style="margin-bottom:18px;">
+            <h3>&#128241; Telegram Reminders</h3>
+            <p class="desc" style="margin-bottom:8px;">
+              Connected to ${botName}. Daily reminders and Telegram OTP can arrive here.
+            </p>
+
+            <div class="toggle-row">
+              <div>
+                <strong>&#9989; Connected</strong>
+                <div class="desc">Chat linked and ready for reminders.</div>
+              </div>
+              <button class="btn btn-outline" onclick="disconnectTelegram()">Disconnect</button>
+            </div>
+
+            <div class="toggle-row">
+              <div>
+                <strong>Telegram reminders</strong>
+                <div class="desc">Receive daily reminders and weekly summaries in Telegram.</div>
+              </div>
+              <div class="toggle ${currentUser.notifyTelegram ? 'on' : ''}" onclick="togglePref('notifyTelegram')"></div>
+            </div>
+
+            <div class="toggle-row">
+              <div>
+                <strong>Test Telegram message</strong>
+                <div class="desc">Send a sample Telegram notification now.</div>
+              </div>
+              <button class="btn" onclick="callAndToast(() => api.post('/api/notifications/test-telegram'), 'Test Telegram sent')">Send test</button>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="card settings-card" style="margin-bottom:18px;">
+          <h3>&#128241; Telegram Reminders</h3>
+          <p class="desc" style="margin-bottom:8px;">
+            Connect ${botName} to receive free daily reminders and forgot-password OTPs in Telegram.
+          </p>
+          <button class="btn" onclick="connectTelegram()">Connect Telegram</button>
+          ${telegramLink && telegramLink.code ? `
+            <div class="telegram-box">
+              <div><strong>Your link code</strong></div>
+              <div class="telegram-code">${telegramLink.code}</div>
+              <div class="desc">Open Telegram, search ${botName}, send <code>/start</code>, then send <code>/connect ${telegramLink.code}</code>.</div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    async function render() {
+      const status = await api.get('/api/notifications/status');
+      const main = document.getElementById('main-content') || renderLayout(currentUser, 'settings');
+
+      const emailPill = status.smtp_configured
+        ? '<span class="pill pill-ok">Email ready</span>'
+        : '<span class="pill pill-warn">Email not configured</span>';
+      const smsPill = status.sms_configured
+        ? '<span class="pill pill-ok">SMS ready</span>'
+        : '<span class="pill pill-warn">SMS not configured</span>';
+      const telegramPill = status.telegram_configured
+        ? '<span class="pill pill-ok">Telegram ready</span>'
+        : '';
+
+      main.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h1>Settings</h1>
+            <p>Notifications, account details, and communication channels.</p>
+          </div>
+          <div>${emailPill} ${smsPill}${telegramPill ? ' ' + telegramPill : ''}</div>
+        </div>
+
+        ${renderProfilePhotoCard()}
+
+        <div class="card settings-card" style="margin-bottom:18px;">
+          <h3>Notification preferences</h3>
+          <p class="desc" style="margin-bottom:8px;">
+            Once enabled, daily reminders go out automatically every day at 8 AM,
+            and weekly reports arrive every Sunday at 6 PM.
+          </p>
+
+          <div class="toggle-row">
+            <div>
+              <strong>Email reminders and weekly report</strong>
+              <div class="desc">Sent to <code>${escapeText(currentUser.email)}</code></div>
+            </div>
+            <div class="toggle ${currentUser.notifyEmail ? 'on' : ''}" onclick="togglePref('notifyEmail')"></div>
+          </div>
+
+          <div class="toggle-row">
+            <div>
+              <strong>SMS daily reminders</strong>
+              <div class="desc">
+                Sent to <code>${escapeText(currentUser.phoneNumber || '- no number on file -')}</code>
+                ${!status.sms_configured ? ' <span class="pill pill-warn">SMS service not set up</span>' : ''}
+              </div>
+            </div>
+            <div class="toggle ${currentUser.notifySms ? 'on' : ''}" onclick="togglePref('notifySms')"></div>
+          </div>
+
+          <div class="toggle-row" style="display:block;">
+            <strong>Mobile number</strong>
+            <div class="desc" style="margin-bottom:8px;">Used for SMS reminders and OTP password reset.</div>
+            <div class="phone-edit">
+              <input type="tel" id="phone-input" maxlength="10" pattern="[0-9]{10}"
+                     placeholder="9876543210" value="${escapeText(currentUser.phoneNumber || '')}" />
+              <button class="btn btn-outline" onclick="savePhone()">Save</button>
+            </div>
+          </div>
+        </div>
+
+        ${renderTelegramSection(status)}
+
+        <div class="card settings-card" style="margin-bottom:18px;">
+          <h3>Test & preview</h3>
+          <p class="desc">Send yourself a sample notification right now.</p>
+          <div class="settings-row">
+            <div><strong>Daily email reminder</strong></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a href="/api/notifications/preview/daily" target="_blank" class="btn btn-outline">Preview</a>
+              <button class="btn" onclick="callAndToast(() => api.post('/api/notifications/test-email'), 'Test email sent')">Send to me</button>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div><strong>SMS test</strong></div>
+            <button class="btn" ${!currentUser.phoneNumber ? 'disabled' : ''}
+                    onclick="callAndToast(() => api.post('/api/notifications/test-sms'), 'Test SMS sent')">
+              Send test SMS
+            </button>
+          </div>
+          <div class="settings-row">
+            <div><strong>Weekly report</strong></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <a href="/api/notifications/preview/weekly" target="_blank" class="btn btn-outline">Preview</a>
+              <button class="btn" onclick="callAndToast(() => api.post('/api/notifications/send-weekly-now'), 'Weekly report sent')">Send to me</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card settings-card" style="margin-bottom:18px;">
+          <h3>Demo helpers</h3>
+          <p class="desc">Manually trigger the background jobs if you need to show the scheduler in action.</p>
+          <div class="settings-row">
+            <div>
+              <strong>Run jobs now</strong>
+              <div class="desc">Triggers the daily or weekly job for all users.</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" onclick="callAndToast(() => api.post('/api/notifications/run-daily-job'), 'Daily job ran')">Run daily job</button>
+              <button class="btn btn-outline" onclick="callAndToast(() => api.post('/api/notifications/run-weekly-job'), 'Weekly job ran')">Run weekly job</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card settings-card">
+          <h3>Account</h3>
+          <div class="settings-row">
+            <div>
+              <strong>${escapeText(currentUser.username)}</strong>
+              <div class="desc">${escapeText(currentUser.email)}</div>
+            </div>
+            <button class="btn btn-danger" onclick="logout()">Sign out</button>
+          </div>
+        </div>
+      `;
+
+      const photoInput = document.getElementById('settings-profile-photo');
+      if (photoInput) {
+        photoInput.addEventListener('change', onPhotoSelected);
+      }
+    }
+
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+      currentUser = user;
+      const main = renderLayout(user, 'settings');
+      main.id = 'main-content';
+      updateLayoutUser(user);
+      await render();
+    })();
+  </script>
+</body>
+</html>

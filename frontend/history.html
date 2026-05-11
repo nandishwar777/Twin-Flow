@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>History — TwinFlow</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <div class="animated-bg">
+    <div class="orb orb-1"></div><div class="orb orb-2"></div>
+    <div class="orb orb-3"></div><div class="orb orb-4"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+      const main = renderLayout(user, 'history');
+      main.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h1>History</h1>
+            <p>Every day you've logged with TwinFlow.</p>
+          </div>
+        </div>
+        <div id="list" class="card fade-in">Loading…</div>
+      `;
+      try {
+        const entries = await api.get('/api/productivity/entries?limit=200');
+        const list = document.getElementById('list');
+        if (!entries.length) {
+          list.innerHTML = '<div class="empty"><h3>No entries yet</h3><p>Log your first day to see history here.</p></div>';
+          return;
+        }
+        list.innerHTML = `
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Sleep</th><th>Focus</th><th>Tasks</th>
+              <th>Breaks</th><th>Energy (you)</th><th>Energy (ML)</th>
+              <th>Score</th><th>Notes</th>
+            </tr></thead>
+            <tbody>
+              ${entries.map(e => `
+                <tr>
+                  <td>${e.date}</td>
+                  <td>${e.sleepHours}h</td>
+                  <td>${e.focusLevel}/10</td>
+                  <td>${e.tasksCompleted}</td>
+                  <td>${e.breakMinutes}m</td>
+                  <td>${e.energyLevelInput}/10</td>
+                  <td>${e.predictedEnergyLevel.toFixed(1)}</td>
+                  <td><strong>${e.productivityScore}</strong></td>
+                  <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${e.notes || ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        document.getElementById('list').innerHTML = '<div class="empty">' + err.message + '</div>';
+      }
+    })();
+  </script>
+</body>
+</html>

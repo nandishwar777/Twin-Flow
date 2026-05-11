@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - TwinFlow</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <script src="/js/theme.js"></script>
+  <style>
+    .hero-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .streak-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 176, 32, 0.35);
+      background: linear-gradient(135deg, rgba(255, 176, 32, 0.18), rgba(255, 122, 24, 0.12));
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(255, 145, 0, 0.08);
+    }
+
+    .streak-pill .flame {
+      font-size: 18px;
+    }
+
+    .achievements-card {
+      height: 100%;
+    }
+
+    .achievement-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .badge-tile {
+      padding: 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .badge-tile.unlocked {
+      border-color: rgba(255, 188, 61, 0.45);
+      background: linear-gradient(145deg, rgba(255, 201, 71, 0.16), rgba(255, 255, 255, 0.04));
+    }
+
+    .badge-tile:hover {
+      transform: translateY(-2px);
+    }
+
+    .badge-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .badge-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--text-muted);
+      font-size: 18px;
+    }
+
+    .badge-tile.unlocked .badge-icon {
+      background: rgba(255, 196, 77, 0.18);
+      color: #d97706;
+    }
+
+    .badge-name {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .badge-rule,
+    .badge-date {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .badge-status {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .badge-tile.unlocked .badge-status {
+      color: #b45309;
+    }
+
+    .streak-meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 720px) {
+      .achievement-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="animated-bg">
+    <div class="orb orb-1"></div><div class="orb orb-2"></div>
+    <div class="orb orb-3"></div><div class="orb orb-4"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+      const main = renderLayout(user, 'dashboard');
+
+      try {
+        const summary = await api.get('/api/dashboard/summary');
+        const currentStreak = summary.currentStreak ?? summary.streakDays ?? 0;
+        const longestStreak = summary.longestStreak ?? currentStreak;
+
+        main.innerHTML = `
+          <div class="page-header">
+            <div>
+              <div class="hero-row">
+                <h1>Welcome back, ${user.username}</h1>
+                <div class="streak-pill">
+                  <span class="flame">&#128293;</span>
+                  <span>${currentStreak}-day streak</span>
+                </div>
+              </div>
+              <p>Your digital twin's productivity insights at a glance.</p>
+            </div>
+            <a href="/log.html" class="btn">+ Log Today</a>
+          </div>
+
+          <div class="recommendation fade-in">${summary.topInsight}</div>
+
+          <div class="grid grid-3" style="margin-top: 20px;">
+            ${statCard('Avg Productivity', summary.avgProductivityScore + '/100', summary.weeklyChange)}
+            ${statCard('Avg Energy', summary.avgEnergyLevel.toFixed(1) + '/10')}
+            ${statCard('Avg Sleep', summary.avgSleepHours.toFixed(1) + 'h')}
+            ${statCard('Avg Focus', summary.avgFocusLevel.toFixed(1) + '/10')}
+            ${statCard('Tasks Done', summary.totalTasksCompleted)}
+            ${statCard('Current Streak', currentStreak + ' days')}
+          </div>
+
+          <div class="grid grid-2" style="margin-top: 24px;">
+            <div class="card achievements-card">
+              <h3 style="margin-bottom: 10px;">Achievements</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px;">
+                Keep your logging streak alive to unlock every badge.
+              </p>
+              ${renderAchievements(summary.badges || [])}
+              <div class="streak-meta">
+                <span>Current streak: <strong>${currentStreak} day${currentStreak === 1 ? '' : 's'}</strong></span>
+                <span>Longest streak: <strong>${longestStreak} day${longestStreak === 1 ? '' : 's'}</strong></span>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 style="margin-bottom: 14px;">Recent Entries</h3>
+              ${summary.recentEntries.length === 0
+                ? '<p style="color: var(--text-muted);">No entries yet - log your first day to begin.</p>'
+                : `<table>
+                    <thead><tr><th>Date</th><th>Score</th><th>Energy</th><th>Sleep</th><th>Tasks</th></tr></thead>
+                    <tbody>
+                      ${summary.recentEntries.map(e => `
+                        <tr>
+                          <td>${e.date}</td>
+                          <td>${e.productivityScore}</td>
+                          <td>${e.predictedEnergyLevel.toFixed(1)}</td>
+                          <td>${e.sleepHours}h</td>
+                          <td>${e.tasksCompleted}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>`
+              }
+            </div>
+          </div>
+
+          <div class="grid" style="margin-top: 24px;">
+            <div class="card">
+              <h3 style="margin-bottom: 14px;">Quick Actions</h3>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a href="/log.html" class="btn btn-outline">Log today's entry</a>
+                <a href="/schedule.html" class="btn btn-outline">View AI schedule</a>
+                <a href="/analytics.html" class="btn btn-outline">See analytics</a>
+                <a href="/history.html" class="btn btn-outline">Browse history</a>
+                <a href="/settings.html" class="btn btn-outline">Open settings</a>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        main.innerHTML = '<div class="empty"><h3>Failed to load</h3><p>' + err.message + '</p></div>';
+      }
+    })();
+
+    function statCard(label, value, change) {
+      let changeHtml = '';
+      if (change !== undefined && change !== null) {
+        const cls = change > 0 ? 'up' : (change < 0 ? 'down' : '');
+        const sign = change > 0 ? '+' : '';
+        changeHtml = `<div class="change ${cls}">${sign}${change}% vs last week</div>`;
+      }
+      return `<div class="card stat-card fade-in">
+        <div class="label">${label}</div>
+        <div class="value">${value}</div>
+        ${changeHtml}
+      </div>`;
+    }
+
+    function renderAchievements(badges) {
+      const earned = new Map((badges || []).map(badge => [badge.code, badge]));
+      const badgeDefs = [
+        { code: 'bronze', label: 'Bronze', threshold: 7 },
+        { code: 'silver', label: 'Silver', threshold: 30 },
+        { code: 'gold', label: 'Gold', threshold: 100 },
+        { code: 'platinum', label: 'Platinum', threshold: 365 },
+      ];
+
+      return `<div class="achievement-grid">
+        ${badgeDefs.map(def => {
+          const badge = earned.get(def.code);
+          const unlocked = Boolean(badge);
+          return `
+            <div class="badge-tile ${unlocked ? 'unlocked' : ''}">
+              <div class="badge-head">
+                <div class="badge-icon">${unlocked ? '&#9733;' : '&#8226;'}</div>
+                <div class="badge-status">${unlocked ? 'Unlocked' : 'Locked'}</div>
+              </div>
+              <div class="badge-name">${def.label}</div>
+              <p class="badge-rule">${def.threshold}-day streak</p>
+              <p class="badge-date">${unlocked ? `Earned ${formatBadgeDate(badge.earnedAt)}` : 'Keep logging to unlock this badge.'}</p>
+            </div>
+          `;
+        }).join('')}
+      </div>`;
+    }
+
+    function formatBadgeDate(value) {
+      const dt = new Date(value);
+      if (Number.isNaN(dt.getTime())) return value;
+      return dt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+  </script>
+</body>
+</html>

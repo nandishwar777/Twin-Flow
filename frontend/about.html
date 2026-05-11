@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About Us - TwinFlow</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <div class="animated-bg">
+    <div class="orb orb-1"></div><div class="orb orb-2"></div>
+    <div class="orb orb-3"></div><div class="orb orb-4"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+
+      const main = renderLayout(user, 'about');
+      updateLayoutUser(user);
+
+      main.innerHTML = `
+        <div class="card page-hero-card fade-in" style="margin-bottom: 20px;">
+          <div class="hero-badge">About TwinFlow</div>
+          <div class="page-header" style="margin-top: 16px; margin-bottom: 0;">
+            <div>
+              <h1>How TwinFlow works for you</h1>
+              <p>TwinFlow acts like a digital twin of your daily work habits. It learns from your entries, predicts your energy, and turns that into a practical schedule.</p>
+            </div>
+          </div>
+          <div class="feature-band">
+            <span class="feature-chip">&#128200; Tracks productivity patterns</span>
+            <span class="feature-chip">&#9881; Generates AI-guided schedules</span>
+            <span class="feature-chip">&#128276; Sends reminders and weekly summaries</span>
+          </div>
+          <div class="hero-actions">
+            <a href="/log.html" class="btn">Log today</a>
+            <a href="/schedule.html" class="btn btn-outline">Open my schedule</a>
+          </div>
+        </div>
+
+        <div class="info-grid" style="margin-bottom: 20px;">
+          <div class="info-card">
+            <h3>1. You enter your daily habits</h3>
+            <p>Sleep, focus, breaks, energy, and completed tasks are recorded through the Daily Log page. That data becomes the input for your personal productivity profile.</p>
+          </div>
+          <div class="info-card">
+            <h3>2. TwinFlow predicts your working energy</h3>
+            <p>The backend model estimates how strong your day may feel so the app can recommend when to place deep work, easier tasks, and breaks.</p>
+          </div>
+          <div class="info-card">
+            <h3>3. Your schedule becomes more realistic</h3>
+            <p>The schedule page turns those predictions into a day plan with task timing, break suggestions, and workload balance based on your recent pattern.</p>
+          </div>
+          <div class="info-card">
+            <h3>4. Analytics show improvement over time</h3>
+            <p>Dashboard, history, and analytics pages help you spot patterns, measure streaks, and understand what helps or hurts your performance.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="card">
+            <h3 class="section-title">What to do after login</h3>
+            <div class="steps-list">
+              <div class="step-item">
+                <div class="step-number">1</div>
+                <div class="step-copy">
+                  <strong>Visit the Daily Log first</strong>
+                  <p>Enter today's sleep, focus level, breaks, energy, and completed tasks so TwinFlow has fresh data to work with.</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-number">2</div>
+                <div class="step-copy">
+                  <strong>Open your AI Schedule</strong>
+                  <p>Use the schedule page to see when TwinFlow thinks you should do focused work, routine work, and rest.</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-number">3</div>
+                <div class="step-copy">
+                  <strong>Check your Dashboard</strong>
+                  <p>Review your current streak, recent entries, and top insight to understand how your momentum is changing.</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-number">4</div>
+                <div class="step-copy">
+                  <strong>Enable reminders in Settings</strong>
+                  <p>Turn on email, SMS, or Telegram notifications if you want daily prompts and weekly reports without needing to remember manually.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="section-title">Best way to use the project</h3>
+            <div class="steps-list">
+              <div class="step-item">
+                <div class="step-number">A</div>
+                <div class="step-copy">
+                  <strong>Be consistent</strong>
+                  <p>Small daily entries are more useful than occasional perfect ones. The project becomes smarter when your input stays regular.</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-number">B</div>
+                <div class="step-copy">
+                  <strong>Compare plan versus reality</strong>
+                  <p>Use history and analytics to notice whether your predicted high-energy periods actually line up with productive results.</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-number">C</div>
+                <div class="step-copy">
+                  <strong>Adjust your routine</strong>
+                  <p>If the app shows repeated dips in energy or focus, use that insight to change sleep, break timing, or work intensity.</p>
+                </div>
+              </div>
+              <div class="step-item">
+                <div class="step-number">D</div>
+                <div class="step-copy">
+                  <strong>Keep your profile updated</strong>
+                  <p>Add a profile photo, keep your phone number current, and connect notification channels so the experience feels complete and useful.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create account - TwinFlow</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <div class="animated-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
+    <div class="shimmer-line"></div>
+  </div>
+
+  <div class="theme-toggle-corner">
+    <button class="btn btn-outline btn-icon" onclick="toggleTheme()" title="Toggle theme">
+      <span data-theme-icon>&#9782;</span>
+    </button>
+  </div>
+
+  <div class="auth-wrapper">
+    <div class="auth-card fade-in">
+      <div class="auth-header">
+        <div class="logo">&#9889;</div>
+        <h1>TwinFlow</h1>
+        <p>Set up your digital twin with a profile that already feels personal.</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom: 4px;">Create account</h2>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+          Add your details, choose a strong password, and optionally upload a profile photo.
+        </p>
+        <div class="social-auth">
+          <div id="google-register-button" class="google-signin-slot"></div>
+          <p class="social-auth-hint" id="google-register-hint">
+            Continue with Google for a faster signup.
+          </p>
+          <div class="social-divider"><span>or create with email</span></div>
+        </div>
+        <form id="register-form">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" required minlength="3" placeholder="your username" />
+          </div>
+
+          <div class="form-group">
+            <label for="profile-photo">Profile photo (optional)</label>
+            <div class="profile-editor">
+              <div class="profile-preview" id="register-photo-preview">TF</div>
+              <div style="flex: 1; min-width: 240px;">
+                <input
+                  type="file"
+                  id="profile-photo"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                />
+                <div class="avatar-actions" style="margin-top: 10px;">
+                  <button type="button" class="btn btn-outline" id="clear-photo-btn">Remove photo</button>
+                </div>
+                <small class="hint">Upload PNG, JPG, WEBP, or GIF under 900 KB.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" required placeholder="you@example.com" />
+          </div>
+
+          <div class="form-group">
+            <label for="phone">Mobile number (10 digits)</label>
+            <input
+              type="tel"
+              id="phone"
+              required
+              pattern="[0-9]{10}"
+              maxlength="10"
+              placeholder="9876543210"
+              inputmode="numeric"
+            />
+            <small class="hint">
+              We use this for daily SMS reminders and password recovery.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="password-input-wrap">
+              <input
+                type="password"
+                id="password"
+                required
+                minlength="8"
+                placeholder="At least 8 characters"
+              />
+              <button
+                type="button"
+                class="password-toggle"
+                data-password-toggle
+                aria-controls="password"
+                aria-label="Show password"
+                aria-pressed="false"
+              >
+                <span class="icon-stack" aria-hidden="true">
+                  <svg class="toggle-icon icon-show" viewBox="0 0 24 24">
+                    <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
+                    <circle cx="12" cy="12" r="2.8" />
+                  </svg>
+                  <svg class="toggle-icon icon-hide" viewBox="0 0 24 24">
+                    <path d="M3 3l18 18" />
+                    <path d="M10.6 5.2A11.4 11.4 0 0 1 12 5c6.4 0 10 7 10 7a18.4 18.4 0 0 1-3.2 3.9" />
+                    <path d="M6.6 6.7C4 8.5 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.2-1.4" />
+                    <path d="M9.9 9.9A3 3 0 0 0 14.1 14.1" />
+                  </svg>
+                </span>
+                <span class="toggle-text">Show</span>
+              </button>
+            </div>
+            <div class="password-strength" id="password-strength-box">
+              <div class="strength-row">
+                <span style="font-size: 13px; font-weight: 700;">Password strength</span>
+                <span class="strength-label" id="strength-label">Weak</span>
+              </div>
+              <div class="strength-meter">
+                <div class="strength-fill" id="strength-fill"></div>
+              </div>
+              <div class="strength-checklist" style="margin-top: 12px;">
+                <span class="check-item" data-check="length">8+ characters</span>
+                <span class="check-item" data-check="upper">Uppercase letter</span>
+                <span class="check-item" data-check="lower">Lowercase letter</span>
+                <span class="check-item" data-check="number">Number</span>
+                <span class="check-item" data-check="special">Special character</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-block" id="submit-btn">Create account</button>
+        </form>
+        <div class="auth-footer">
+          Already have an account? <a href="/login.html">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/google-auth.js"></script>
+  <script src="/js/password-toggle.js"></script>
+  <script>
+    const registerForm = document.getElementById('register-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const photoInput = document.getElementById('profile-photo');
+    const clearPhotoBtn = document.getElementById('clear-photo-btn');
+    const photoPreview = document.getElementById('register-photo-preview');
+    const strengthFill = document.getElementById('strength-fill');
+    const strengthLabel = document.getElementById('strength-label');
+
+    let profilePhotoData = null;
+
+    window.twinFlowGoogleAuth.initGoogleButton({
+      containerId: 'google-register-button',
+      hintId: 'google-register-hint',
+      loadingButtonId: 'submit-btn',
+      loadingText: 'Opening Google...',
+      text: 'continue_with',
+      readyMessage: 'Use your Google account to create your TwinFlow profile in one step.',
+    });
+
+    function renderPhotoPreview() {
+      const initials = (usernameInput.value.trim() || 'TF').slice(0, 2).toUpperCase();
+      if (profilePhotoData) {
+        photoPreview.innerHTML = '<img src="' + profilePhotoData + '" alt="Selected profile photo" />';
+        return;
+      }
+      photoPreview.textContent = initials;
+    }
+
+    function readPhotoFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read the selected photo'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function evaluatePassword(password) {
+      const checks = {
+        length: password.length >= 8,
+        upper: /[A-Z]/.test(password),
+        lower: /[a-z]/.test(password),
+        number: /\d/.test(password),
+        special: /[^A-Za-z0-9]/.test(password),
+      };
+      const score = Object.values(checks).filter(Boolean).length;
+      let label = 'Weak';
+      let cssClass = '';
+      if (score === 5) {
+        label = 'Strong';
+        cssClass = 'strong';
+      } else if (score === 4) {
+        label = 'Good';
+        cssClass = 'good';
+      } else if (score === 3) {
+        label = 'Fair';
+        cssClass = 'fair';
+      }
+      return { checks, score, label, cssClass };
+    }
+
+    function updatePasswordStrength() {
+      const result = evaluatePassword(passwordInput.value);
+      strengthLabel.textContent = result.label;
+      strengthFill.className = 'strength-fill' + (result.cssClass ? ' ' + result.cssClass : '');
+      strengthFill.style.width = (result.score / 5) * 100 + '%';
+
+      document.querySelectorAll('[data-check]').forEach((item) => {
+        const key = item.getAttribute('data-check');
+        item.classList.toggle('met', Boolean(result.checks[key]));
+      });
+
+      return result;
+    }
+
+    usernameInput.addEventListener('input', renderPhotoPreview);
+    passwordInput.addEventListener('input', updatePasswordStrength);
+
+    photoInput.addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) {
+        profilePhotoData = null;
+        renderPhotoPreview();
+        return;
+      }
+
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        showToast('Choose a PNG, JPG, WEBP, or GIF image.', 'error');
+        photoInput.value = '';
+        return;
+      }
+      if (file.size > 900000) {
+        showToast('Profile photo must be smaller than 900 KB.', 'error');
+        photoInput.value = '';
+        return;
+      }
+
+      try {
+        profilePhotoData = await readPhotoFile(file);
+        renderPhotoPreview();
+      } catch (err) {
+        profilePhotoData = null;
+        photoInput.value = '';
+        showToast(err.message || 'Could not load profile photo.', 'error');
+      }
+    });
+
+    clearPhotoBtn.addEventListener('click', () => {
+      profilePhotoData = null;
+      photoInput.value = '';
+      renderPhotoPreview();
+    });
+
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const strength = updatePasswordStrength();
+      if (strength.score < 5) {
+        showToast('Please use a stronger password that meets all requirements.', 'error');
+        passwordInput.focus();
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating...';
+      try {
+        await api.post('/api/auth/register', {
+          username: usernameInput.value.trim(),
+          email: document.getElementById('email').value.trim(),
+          phoneNumber: document.getElementById('phone').value.trim(),
+          password: passwordInput.value,
+          profilePhoto: profilePhotoData,
+        });
+        window.location.href = '/dashboard.html';
+      } catch (err) {
+        showToast(err.message || 'Registration failed', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create account';
+      }
+    });
+
+    renderPhotoPreview();
+    updatePasswordStrength();
+  </script>
+</body>
+</html>

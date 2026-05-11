@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analytics — TwinFlow</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <script src="/js/theme.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="animated-bg">
+    <div class="orb orb-1"></div><div class="orb orb-2"></div>
+    <div class="orb orb-3"></div><div class="orb orb-4"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+      const main = renderLayout(user, 'analytics');
+      main.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h1>Analytics</h1>
+            <p>Trends over the last 30 days and your weekly report.</p>
+          </div>
+        </div>
+        <div class="card fade-in">
+          <h3 style="margin-bottom: 14px;">30-Day Trend</h3>
+          <canvas id="trend-chart" height="100"></canvas>
+        </div>
+        <div id="weekly" style="margin-top: 20px;"></div>
+      `;
+
+      try {
+        const [trend, weekly] = await Promise.all([
+          api.get('/api/dashboard/trend'),
+          api.get('/api/dashboard/weekly-report'),
+        ]);
+        renderTrend(trend);
+        renderWeekly(weekly);
+      } catch (err) {
+        showToast(err.message || 'Failed to load analytics', 'error');
+      }
+    })();
+
+    function renderTrend(trend) {
+      if (!trend.length) {
+        document.getElementById('trend-chart').replaceWith(
+          Object.assign(document.createElement('div'), { className: 'empty', innerHTML: '<h3>No trend data yet</h3><p>Log a few days to see trends.</p>' })
+        );
+        return;
+      }
+      const labels = trend.map(t => t.date);
+      const isDark = document.body.classList.contains('dark');
+      const grid = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+      const text = isDark ? '#cbd5e1' : '#475569';
+      new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Productivity Score', data: trend.map(t => t.productivityScore), borderColor: '#3366ff', backgroundColor: 'rgba(51,102,255,0.10)', tension: 0.3, fill: true },
+            { label: 'Energy', data: trend.map(t => t.energyLevel * 10), borderColor: '#00bcd4', backgroundColor: 'transparent', tension: 0.3 },
+            { label: 'Focus', data: trend.map(t => t.focusLevel * 10), borderColor: '#f59e0b', backgroundColor: 'transparent', tension: 0.3 },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: text } } },
+          scales: {
+            x: { grid: { color: grid }, ticks: { color: text } },
+            y: { grid: { color: grid }, ticks: { color: text }, beginAtZero: true, max: 100 },
+          },
+        },
+      });
+    }
+
+    function renderWeekly(w) {
+      document.getElementById('weekly').innerHTML = `
+        <div class="card fade-in">
+          <h3 style="margin-bottom: 14px;">Weekly Report (${w.weekStart} → ${w.weekEnd})</h3>
+          <div class="grid grid-3">
+            <div><div class="label" style="font-size:12px;color:var(--text-muted);">Avg Productivity</div><div style="font-size:22px;font-weight:700;">${w.avgProductivityScore}/100</div></div>
+            <div><div class="label" style="font-size:12px;color:var(--text-muted);">Avg Energy</div><div style="font-size:22px;font-weight:700;">${w.avgEnergyLevel.toFixed(1)}/10</div></div>
+            <div><div class="label" style="font-size:12px;color:var(--text-muted);">Tasks Completed</div><div style="font-size:22px;font-weight:700;">${w.totalTasksCompleted}</div></div>
+            <div><div class="label" style="font-size:12px;color:var(--text-muted);">Best Day</div><div style="font-size:16px;font-weight:600;">${w.bestDay || '—'}</div></div>
+            <div><div class="label" style="font-size:12px;color:var(--text-muted);">Worst Day</div><div style="font-size:16px;font-weight:600;">${w.worstDay || '—'}</div></div>
+          </div>
+          <h4 style="margin-top: 18px; margin-bottom: 10px;">Improvement Tips</h4>
+          ${w.improvementTips.map(t => `<div class="recommendation">${t}</div>`).join('')}
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

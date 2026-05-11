@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TwinFlow</title>
+  <script>
+    (async function () {
+      try {
+        const r = await fetch('/api/auth/me', { credentials: 'include' });
+        window.location.href = r.ok ? '/dashboard.html' : '/login.html';
+      } catch {
+        window.location.href = '/login.html';
+      }
+    })();
+  </script>
+</head>
+<body>Loading…</body>
+</html>

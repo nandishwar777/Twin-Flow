@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log Entry — TwinFlow</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/animations.css" />
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <div class="animated-bg">
+    <div class="orb orb-1"></div><div class="orb orb-2"></div>
+    <div class="orb orb-3"></div><div class="orb orb-4"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+      const main = renderLayout(user, 'log');
+      const today = new Date().toISOString().slice(0, 10);
+      main.innerHTML = `
+        <div class="page-header">
+          <div>
+            <h1>Daily Log</h1>
+            <p>Tell your twin how today went. The ML model will update its prediction.</p>
+          </div>
+        </div>
+        <div class="card fade-in" style="max-width: 720px; margin-bottom: 20px;">
+          <h3 style="margin-bottom: 10px;">How to fill this form</h3>
+          <div class="steps-list">
+            <div class="step-item">
+              <div class="step-number">1</div>
+              <div class="step-copy">
+                <strong>Enter today's real values</strong>
+                <p>Use the actual sleep, focus, energy, and work details from today. More honest data gives better predictions.</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">2</div>
+              <div class="step-copy">
+                <strong>Use 1 to 10 scales consistently</strong>
+                <p>For focus and energy, 1 means very low and 10 means excellent. Try to rate yourself the same way every day.</p>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-number">3</div>
+              <div class="step-copy">
+                <strong>Count totals for the whole day</strong>
+                <p>Tasks completed, break minutes, and available hours should represent the full day, not just one work session.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="info-grid" style="max-width: 720px; margin-bottom: 20px;">
+          <div class="info-card">
+            <h3>Sleep hours</h3>
+            <p>Enter how many hours you slept last night. Example: if you slept from 11:00 PM to 6:30 AM, enter <strong>7.5</strong>. If you woke up many times, enter your best realistic estimate.</p>
+          </div>
+          <div class="info-card">
+            <h3>Focus and energy</h3>
+            <p>Use a 1 to 10 score. Enter <strong>1 to 3</strong> for very low, <strong>4 to 7</strong> for average, and <strong>8 to 10</strong> for strong focus or energy.</p>
+          </div>
+          <div class="info-card">
+            <h3>Tasks and breaks</h3>
+            <p>Count only tasks you fully completed. For breaks, add all short and long breaks together. Example: 10 + 15 + 20 minutes = <strong>45</strong> break minutes.</p>
+          </div>
+          <div class="info-card">
+            <h3>Available hours</h3>
+            <p>Enter the hours you could realistically work or study today. Example: if you had classes, travel, and meals, and only 6.5 useful hours remained, enter <strong>6.5</strong>.</p>
+          </div>
+        </div>
+        <div class="card fade-in" style="max-width: 720px;">
+          <form id="entry-form">
+            <div class="grid grid-2">
+              <div class="form-group">
+                <label for="date">Date</label>
+                <input type="date" id="date" value="${today}" min="${today}" max="${today}" readonly aria-readonly="true" required />
+                <small class="hint">TwinFlow accepts log entries only for today's date.</small>
+              </div>
+              <div class="form-group">
+                <label for="sleep">Sleep hours</label>
+                <div class="mini-note" style="margin-bottom: 8px;">Calculate from the time you fell asleep to the time you woke up. Example: 12:00 AM to 7:30 AM = 7.5 hours.</div>
+                <input type="number" id="sleep" min="0" max="24" step="0.5" value="7.5" required />
+                <small class="hint">Enter the total number of hours you slept last night, including half hours if needed.</small>
+              </div>
+              <div class="form-group">
+                <label for="focus">Focus level (1-10)</label>
+                <div class="mini-note" style="margin-bottom: 8px;">Rate your concentration quality. 1 means very distracted, 5 means average, and 10 means extremely focused.</div>
+                <input type="number" id="focus" min="1" max="10" value="7" required />
+                <small class="hint">Rate how well you were able to concentrate today: 1 is very distracted, 10 is deeply focused.</small>
+              </div>
+              <div class="form-group">
+                <label for="tasks">Tasks completed</label>
+                <div class="mini-note" style="margin-bottom: 8px;">Count finished tasks only. If you started 5 tasks but completed 3, enter 3.</div>
+                <input type="number" id="tasks" min="0" value="5" required />
+                <small class="hint">Count the meaningful tasks you actually finished today.</small>
+              </div>
+              <div class="form-group">
+                <label for="breaks">Break minutes total</label>
+                <div class="mini-note" style="margin-bottom: 8px;">Add every break together in minutes. Example: 5 + 10 + 30 = 45 total break minutes.</div>
+                <input type="number" id="breaks" min="0" value="45" required />
+                <small class="hint">Add all short and long breaks together in minutes for the full day.</small>
+              </div>
+              <div class="form-group">
+                <label for="energy">Self-reported energy (1-10)</label>
+                <div class="mini-note" style="margin-bottom: 8px;">Rate your physical and mental energy for the day. 1 means exhausted, 10 means you felt fresh and active most of the day.</div>
+                <input type="number" id="energy" min="1" max="10" value="7" required />
+                <small class="hint">Rate how energetic you felt overall today: 1 is exhausted, 10 is highly energetic.</small>
+              </div>
+              <div class="form-group">
+                <label for="hours">Available hours today</label>
+                <div class="mini-note" style="margin-bottom: 8px;">Enter only realistic free work/study time after classes, travel, meals, and personal commitments are removed.</div>
+                <input type="number" id="hours" min="0" max="24" step="0.5" value="8" required />
+                <small class="hint">Enter how many hours were realistically available for work, study, or planned effort.</small>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="notes">Notes (optional)</label>
+              <textarea id="notes" rows="3" placeholder="Anything notable about today..."></textarea>
+              <small class="hint">Mention anything unusual such as illness, travel, exams, meetings, or low motivation.</small>
+            </div>
+            <button type="submit" class="btn" id="submit-btn">Save & predict energy</button>
+          </form>
+        </div>
+        <div id="result"></div>
+      `;
+
+      const dateInput = document.getElementById('date');
+      dateInput.addEventListener('change', () => {
+        if (dateInput.value !== today) {
+          dateInput.value = today;
+          showToast('You can log entries only for today.', 'info');
+        }
+      });
+
+      document.getElementById('entry-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        try {
+          const entry = await api.post('/api/productivity/entries', {
+            date: document.getElementById('date').value,
+            sleepHours: parseFloat(document.getElementById('sleep').value),
+            focusLevel: parseInt(document.getElementById('focus').value, 10),
+            tasksCompleted: parseInt(document.getElementById('tasks').value, 10),
+            breakMinutes: parseInt(document.getElementById('breaks').value, 10),
+            energyLevelInput: parseInt(document.getElementById('energy').value, 10),
+            availableHours: parseFloat(document.getElementById('hours').value),
+            notes: document.getElementById('notes').value || null,
+          });
+          showToast('Entry saved! ML predicted energy ' + entry.predictedEnergyLevel.toFixed(1), 'success');
+          document.getElementById('result').innerHTML = `
+            <div class="card fade-in" style="max-width: 720px; margin-top: 20px;">
+              <h3 style="margin-bottom: 10px;">ML Prediction</h3>
+              <p><strong>Predicted energy:</strong> ${entry.predictedEnergyLevel.toFixed(2)} / 10</p>
+              <p><strong>Productivity score:</strong> ${entry.productivityScore} / 100</p>
+              <p style="margin-top: 14px;">
+                <a href="/schedule.html" class="btn">Generate AI schedule →</a>
+              </p>
+            </div>
+          `;
+        } catch (err) {
+          showToast(err.message || 'Save failed', 'error');
+        } finally {
+          btn.disabled = false; btn.textContent = 'Save & predict energy';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
