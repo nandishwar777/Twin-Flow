@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from passlib.context import CryptContext
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -23,6 +23,7 @@ from notifications import (
     sms_configured,
 )
 from schemas import (
+    AvailabilityCheckResponse,
     AuthResponse,
     CaptchaResponse,
     GoogleAuthBody,
@@ -31,6 +32,8 @@ from schemas import (
     MessageResponse,
     NotificationPrefsBody,
     OtpRequestResponse,
+    RegisterAvailabilityBody,
+    RegisterAvailabilityResponse,
     RegisterBody,
     RequestOtpBody,
     ResetChannelAvailabilityBody,
@@ -374,16 +377,72 @@ def google_sign_in(body: GoogleAuthBody, request: Request, db: Session = Depends
     )
 
 
+@router.get("/register/check-email", response_model=AvailabilityCheckResponse)
+def register_check_email(email: str, db: Session = Depends(get_db)):
+    normalized_email = (email or "").strip().lower()
+    if not normalized_email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    exists = db.query(User.id).filter(func.lower(User.email) == normalized_email).first()
+    return AvailabilityCheckResponse(
+        available=not bool(exists),
+        message="" if not exists else "Email is already in use",
+    )
+
+
+@router.get("/register/check-phone", response_model=AvailabilityCheckResponse)
+def register_check_phone(
+    phone: str = Query(..., alias="phoneNumber"),
+    db: Session = Depends(get_db),
+):
+    digits = re.sub(r"\D", "", phone or "")
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    if len(digits) != 10:
+        raise HTTPException(status_code=400, detail="Phone number must be 10 digits")
+
+    exists = db.query(User.id).filter(User.phone_number == digits).first()
+    return AvailabilityCheckResponse(
+        available=not bool(exists),
+        message="" if not exists else "Phone number is already in use",
+    )
+
+
+@router.post("/register/availability", response_model=RegisterAvailabilityResponse)
+def register_availability(body: RegisterAvailabilityBody, db: Session = Depends(get_db)):
+    email_available = None
+    phone_available = None
+    email_message = ""
+    phone_message = ""
+
+    if body.email is not None:
+        normalized_email = body.email.strip().lower()
+        email_available = not db.query(User.id).filter(func.lower(User.email) == normalized_email).first()
+        if not email_available:
+            email_message = "Email is already in use"
+
+    if body.phone is not None:
+        phone_available = not db.query(User.id).filter(User.phone_number == body.phone).first()
+        if not phone_available:
+            phone_message = "Phone number is already in use"
+
+    return RegisterAvailabilityResponse(
+        emailAvailable=email_available,
+        phoneAvailable=phone_available,
+        emailMessage=email_message,
+        phoneMessage=phone_message,
+    )
+
+
 @router.post("/register", status_code=201, response_model=AuthResponse)
 def register(body: RegisterBody, request: Request, db: Session = Depends(get_db)):
     normalized_email = body.email.lower()
-    exists = db.query(User).filter(
-        (func.lower(User.email) == normalized_email) | (User.username == body.username)
-    ).first()
-    if exists:
-        raise HTTPException(status_code=409, detail="Email or username already in use")
+    if db.query(User.id).filter(func.lower(User.email) == normalized_email).first():
+        raise HTTPException(status_code=409, detail="Email is already in use")
+    if db.query(User.id).filter(User.username == body.username).first():
+        raise HTTPException(status_code=409, detail="This username is already in use")
     if db.query(User).filter(User.phone_number == body.phone).first():
-        raise HTTPException(status_code=409, detail="Phone number already registered")
+        raise HTTPException(status_code=409, detail="Phone number is already in use")
 
     user = User(
         username=body.username,

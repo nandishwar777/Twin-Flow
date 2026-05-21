@@ -97,6 +97,34 @@ class RegisterBody(BaseModel):
         return normalize_profile_photo(v)
 
 
+class RegisterAvailabilityBody(BaseModel):
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = Field(default=None, alias="phoneNumber", description="10-digit Indian mobile")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("phone")
+    @classmethod
+    def _v_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return normalize_indian_phone(v)
+
+
+class RegisterAvailabilityResponse(BaseModel):
+    email_available: Optional[bool] = Field(default=None, alias="emailAvailable")
+    phone_available: Optional[bool] = Field(default=None, alias="phoneAvailable")
+    email_message: str = Field(default="", alias="emailMessage")
+    phone_message: str = Field(default="", alias="phoneMessage")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class AvailabilityCheckResponse(BaseModel):
+    available: bool
+    message: str = ""
+
+
 class LoginBody(BaseModel):
     """Login by email OR 10-digit phone under one identifier field."""
 

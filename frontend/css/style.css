@@ -162,7 +162,23 @@ a:hover { text-decoration: underline; }
   color: var(--text-muted);
 }
 
+.form-group .form-error[hidden] {
+  display: none;
+}
+
 .form-error { color: var(--danger); font-size: 13px; margin-top: 6px; }
+
+.form-group input.has-error,
+.form-group textarea.has-error,
+.form-group select.has-error {
+  border-color: var(--danger);
+}
+
+.form-group input.has-error:focus,
+.form-group textarea.has-error:focus,
+.form-group select.has-error:focus {
+  box-shadow: 0 0 0 4px rgba(214, 81, 67, 0.16);
+}
 
 .password-input-wrap {
   position: relative;

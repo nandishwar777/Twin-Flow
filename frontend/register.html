@@ -69,6 +69,8 @@
           <div class="form-group">
             <label for="email">Email</label>
             <input type="email" id="email" required placeholder="you@example.com" />
+            <small class="hint" id="email-status" hidden></small>
+            <small class="form-error" id="email-error" hidden></small>
           </div>
 
           <div class="form-group">
@@ -85,6 +87,8 @@
             <small class="hint">
               We use this for daily SMS reminders and password recovery.
             </small>
+            <small class="hint" id="phone-status" hidden></small>
+            <small class="form-error" id="phone-error" hidden></small>
           </div>
 
           <div class="form-group">
@@ -155,14 +159,25 @@
     const registerForm = document.getElementById('register-form');
     const submitBtn = document.getElementById('submit-btn');
     const usernameInput = document.getElementById('username');
+    const emailInput = document.getElementById('email');
+    const phoneInput = document.getElementById('phone');
     const passwordInput = document.getElementById('password');
     const photoInput = document.getElementById('profile-photo');
     const clearPhotoBtn = document.getElementById('clear-photo-btn');
     const photoPreview = document.getElementById('register-photo-preview');
     const strengthFill = document.getElementById('strength-fill');
     const strengthLabel = document.getElementById('strength-label');
+    const emailStatus = document.getElementById('email-status');
+    const phoneStatus = document.getElementById('phone-status');
+    const emailError = document.getElementById('email-error');
+    const phoneError = document.getElementById('phone-error');
 
     let profilePhotoData = null;
+    const AVAILABILITY_DEBOUNCE_MS = 180;
+    const availabilityState = {
+      email: { requestId: 0, available: true, checking: false, controller: null },
+      phone: { requestId: 0, available: true, checking: false, controller: null },
+    };
 
     window.twinFlowGoogleAuth.initGoogleButton({
       containerId: 'google-register-button',
@@ -229,8 +244,272 @@
       return result;
     }
 
+    function debounce(fn, wait = 400) {
+      let timerId = null;
+      return (...args) => {
+        clearTimeout(timerId);
+        timerId = window.setTimeout(() => fn(...args), wait);
+      };
+    }
+
+    function setFieldError(input, errorEl, message = '') {
+      input.classList.toggle('has-error', Boolean(message));
+      input.setAttribute('aria-invalid', message ? 'true' : 'false');
+      errorEl.textContent = message;
+      errorEl.hidden = !message;
+    }
+
+    function setFieldStatus(statusEl, message = '') {
+      statusEl.textContent = message;
+      statusEl.hidden = !message;
+    }
+
+    function abortAvailabilityRequest(field) {
+      const controller = availabilityState[field].controller;
+      if (controller) {
+        controller.abort();
+        availabilityState[field].controller = null;
+      }
+    }
+
+    function updateSubmitState() {
+      const checking = availabilityState.email.checking || availabilityState.phone.checking;
+      if (submitBtn.dataset.submitting === 'true') {
+        return;
+      }
+      submitBtn.disabled = checking;
+      submitBtn.textContent = checking ? 'Checking...' : 'Create account';
+    }
+
+    function normalizePhoneInput(value) {
+      return value.replace(/\D/g, '').slice(0, 10);
+    }
+
+    function isLikelyEmail(value) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+
+    async function fetchAvailabilityJson(url, controller) {
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json') ? await response.json() : null;
+      if (!response.ok) {
+        const message = (data && (data.detail || data.message)) || `Request failed (${response.status})`;
+        const error = new Error(typeof message === 'string' ? message : JSON.stringify(message));
+        error.status = response.status;
+        error.data = data;
+        throw error;
+      }
+      return data;
+    }
+
+    async function resolveAvailability(field, value, controller) {
+      const url = field === 'email'
+        ? `/api/auth/register/check-email?email=${encodeURIComponent(value)}`
+        : `/api/auth/register/check-phone?phoneNumber=${encodeURIComponent(value)}`;
+
+      try {
+        const response = await fetchAvailabilityJson(url, controller);
+        return { available: response.available !== false, message: response.message || '' };
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return null;
+        }
+        if (err.status && err.status !== 404) {
+          throw err;
+        }
+      }
+
+      try {
+        await api.post('/api/auth/reset-options', { identifier: value });
+        return {
+          available: false,
+          message: field === 'email' ? 'Email is already in use' : 'Phone number is already in use',
+        };
+      } catch (err) {
+        if (err.status === 404) {
+          return { available: true, message: '' };
+        }
+        throw err;
+      }
+    }
+
+    async function checkRegisterAvailability(field) {
+      const isEmailField = field === 'email';
+      const input = isEmailField ? emailInput : phoneInput;
+      const statusEl = isEmailField ? emailStatus : phoneStatus;
+      const errorEl = isEmailField ? emailError : phoneError;
+      const rawValue = input.value.trim();
+      const value = isEmailField ? rawValue : normalizePhoneInput(rawValue);
+
+      if (!value) {
+        availabilityState[field].available = true;
+        availabilityState[field].checking = false;
+        setFieldStatus(statusEl, '');
+        setFieldError(input, errorEl, '');
+        updateSubmitState();
+        return true;
+      }
+
+      if (isEmailField && !isLikelyEmail(value)) {
+        availabilityState[field].available = true;
+        availabilityState[field].checking = false;
+        setFieldStatus(statusEl, '');
+        setFieldError(input, errorEl, '');
+        updateSubmitState();
+        return true;
+      }
+
+      if (!isEmailField && value.length !== 10) {
+        availabilityState[field].available = true;
+        availabilityState[field].checking = false;
+        setFieldStatus(statusEl, '');
+        setFieldError(input, errorEl, '');
+        updateSubmitState();
+        return true;
+      }
+
+        const requestId = ++availabilityState[field].requestId;
+      abortAvailabilityRequest(field);
+      const controller = new AbortController();
+      availabilityState[field].controller = controller;
+      availabilityState[field].checking = true;
+      setFieldStatus(statusEl, isEmailField ? 'Checking email...' : 'Checking phone number...');
+      updateSubmitState();
+
+      try {
+        const result = await resolveAvailability(field, value, controller);
+
+        if (requestId !== availabilityState[field].requestId) {
+          return availabilityState[field].available;
+        }
+        if (result === null) {
+          return availabilityState[field].available;
+        }
+
+        availabilityState[field].controller = null;
+        availabilityState[field].checking = false;
+        availabilityState[field].available = result.available !== false;
+        setFieldStatus(statusEl, '');
+        setFieldError(input, errorEl, result.available === false ? result.message : '');
+        updateSubmitState();
+        return availabilityState[field].available;
+      } catch (err) {
+        if (requestId !== availabilityState[field].requestId) {
+          return availabilityState[field].available;
+        }
+        availabilityState[field].controller = null;
+        availabilityState[field].checking = false;
+        availabilityState[field].available = true;
+        setFieldStatus(statusEl, '');
+        updateSubmitState();
+        if (err.status === 400 || err.status === 422) {
+          setFieldError(input, errorEl, '');
+          return true;
+        }
+        return true;
+      }
+    }
+
+    const debouncedEmailAvailabilityCheck = debounce(() => checkRegisterAvailability('email'), AVAILABILITY_DEBOUNCE_MS);
+    const debouncedPhoneAvailabilityCheck = debounce(() => checkRegisterAvailability('phone'), AVAILABILITY_DEBOUNCE_MS);
+
+    async function ensureRegistrationAvailability() {
+      const [emailAvailable, phoneAvailable] = await Promise.all([
+        checkRegisterAvailability('email'),
+        checkRegisterAvailability('phone'),
+      ]);
+
+      if (!emailAvailable) {
+        emailInput.focus();
+        return false;
+      }
+
+      if (!phoneAvailable) {
+        phoneInput.focus();
+        return false;
+      }
+
+      return true;
+    }
+
+    function triggerAvailabilityChecksForPrefilledValues() {
+      if (isLikelyEmail(emailInput.value.trim())) {
+        checkRegisterAvailability('email');
+      }
+      if (normalizePhoneInput(phoneInput.value).length === 10) {
+        phoneInput.value = normalizePhoneInput(phoneInput.value);
+        checkRegisterAvailability('phone');
+      }
+    }
+
     usernameInput.addEventListener('input', renderPhotoPreview);
     passwordInput.addEventListener('input', updatePasswordStrength);
+    emailInput.addEventListener('input', () => {
+      availabilityState.email.requestId += 1;
+      availabilityState.email.available = true;
+      availabilityState.email.checking = false;
+      abortAvailabilityRequest('email');
+      setFieldStatus(emailStatus, '');
+      setFieldError(emailInput, emailError, '');
+      updateSubmitState();
+      if (isLikelyEmail(emailInput.value.trim())) {
+        debouncedEmailAvailabilityCheck();
+      }
+    });
+    emailInput.addEventListener('change', () => {
+      if (isLikelyEmail(emailInput.value.trim())) {
+        checkRegisterAvailability('email');
+      }
+    });
+    emailInput.addEventListener('paste', () => {
+      window.setTimeout(() => {
+        if (isLikelyEmail(emailInput.value.trim())) {
+          checkRegisterAvailability('email');
+        }
+      }, 0);
+    });
+    emailInput.addEventListener('blur', () => {
+      if (isLikelyEmail(emailInput.value.trim())) {
+        checkRegisterAvailability('email');
+      }
+    });
+    phoneInput.addEventListener('input', () => {
+      phoneInput.value = normalizePhoneInput(phoneInput.value);
+      availabilityState.phone.requestId += 1;
+      availabilityState.phone.available = true;
+      availabilityState.phone.checking = false;
+      abortAvailabilityRequest('phone');
+      setFieldStatus(phoneStatus, '');
+      setFieldError(phoneInput, phoneError, '');
+      updateSubmitState();
+      if (phoneInput.value.length === 10) {
+        debouncedPhoneAvailabilityCheck();
+      }
+    });
+    phoneInput.addEventListener('change', () => {
+      if (phoneInput.value.length === 10) {
+        checkRegisterAvailability('phone');
+      }
+    });
+    phoneInput.addEventListener('paste', () => {
+      window.setTimeout(() => {
+        phoneInput.value = normalizePhoneInput(phoneInput.value);
+        if (phoneInput.value.length === 10) {
+          checkRegisterAvailability('phone');
+        }
+      }, 0);
+    });
+    phoneInput.addEventListener('blur', () => {
+      if (phoneInput.value.length === 10) {
+        checkRegisterAvailability('phone');
+      }
+    });
 
     photoInput.addEventListener('change', async (event) => {
       const file = event.target.files && event.target.files[0];
@@ -270,6 +549,10 @@
 
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      phoneInput.value = normalizePhoneInput(phoneInput.value);
+      if (!registerForm.reportValidity()) {
+        return;
+      }
       const strength = updatePasswordStrength();
       if (strength.score < 5) {
         showToast('Please use a stronger password that meets all requirements.', 'error');
@@ -277,26 +560,43 @@
         return;
       }
 
+      const availabilityOk = await ensureRegistrationAvailability();
+      if (!availabilityOk) {
+        return;
+      }
+
+      submitBtn.dataset.submitting = 'true';
       submitBtn.disabled = true;
       submitBtn.textContent = 'Creating...';
       try {
         await api.post('/api/auth/register', {
           username: usernameInput.value.trim(),
-          email: document.getElementById('email').value.trim(),
-          phoneNumber: document.getElementById('phone').value.trim(),
+          email: emailInput.value.trim(),
+          phoneNumber: phoneInput.value.trim(),
           password: passwordInput.value,
           profilePhoto: profilePhotoData,
         });
         window.location.href = '/dashboard.html';
       } catch (err) {
+        if ((err.message || '').toLowerCase().includes('email')) {
+          setFieldError(emailInput, emailError, err.message);
+        } else if ((err.message || '').toLowerCase().includes('mobile number') || (err.message || '').toLowerCase().includes('phone')) {
+          setFieldError(phoneInput, phoneError, err.message);
+        }
         showToast(err.message || 'Registration failed', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Create account';
+      } finally {
+        submitBtn.dataset.submitting = 'false';
+        updateSubmitState();
       }
     });
 
     renderPhotoPreview();
     updatePasswordStrength();
+    submitBtn.dataset.submitting = 'false';
+    updateSubmitState();
+    window.requestAnimationFrame(triggerAvailabilityChecksForPrefilledValues);
+    window.setTimeout(triggerAvailabilityChecksForPrefilledValues, 250);
+    window.addEventListener('pageshow', triggerAvailabilityChecksForPrefilledValues);
   </script>
 </body>
 </html>
