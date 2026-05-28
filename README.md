@@ -1,4 +1,4 @@
-<img width="1366" height="768" alt="image" src="https://github.com/user-attachments/assets/6d7be31f-f175-4b97-adc5-d4710733151b" /># TwinFlow - Python Edition
+TwinFlow - Python Edition
 
 Digital Twin AI Personal Productivity & Scheduling System.
 
