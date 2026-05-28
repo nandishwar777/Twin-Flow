@@ -16,6 +16,8 @@ backend/twinflow.db
 backend/*.db
 backend/*.sqlite
 backend/*.sqlite3
+*.db-journal
+
 backend/venv/
 
 backend/ml/model.pkl
