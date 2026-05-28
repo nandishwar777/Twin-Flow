@@ -1,7 +1,0 @@
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}\\backend\\venv\\Scripts\\python.exe",
-  "python.terminal.activateEnvironment": true,
-  "code-runner.executorMap": {
-    "python": "\"${workspaceFolder}\\backend\\venv\\Scripts\\python.exe\" -u"
-  }
-}

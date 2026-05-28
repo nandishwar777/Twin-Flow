@@ -69,19 +69,19 @@ pip install -r requirements.txt
 
 ### 4. Configure environment
 
-Copy `.env.example` to `.env`:
+Copy `backend/.env.example` to `backend/.env`:
 
 ```bash
-cp .env.example .env
+cp backend/.env.example backend/.env
 ```
 
 Windows:
 
 ```bat
-copy .env.example .env
+copy backend\.env.example backend\.env
 ```
 
-Set your real values in `.env`:
+Set your real values in `backend/.env`:
 
 ```env
 DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/twinflow
